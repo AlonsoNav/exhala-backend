@@ -60,8 +60,8 @@ def create_cookie(response: Response, email: str):
     response.set_cookie(
         key="access_token",
         value=token,
-        httponly=True,
-        secure=False,  # True in production
-        samesite="lax",
+        httponly=False,
+        secure=True,
+        samesite="none",
         max_age=604800,  # 1 week
     )

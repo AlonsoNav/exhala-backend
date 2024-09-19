@@ -2,11 +2,11 @@ import random
 import string
 from datetime import datetime, timedelta
 from pymongo import errors
-from fastapi import APIRouter, status, HTTPException, Depends, Response
+from fastapi import APIRouter, status, HTTPException, Depends, Response, Request
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from config.db import db
-from schemas.user import UserCreate, ForgotPasswordRequest, ResetPasswordRequest
-from services.auth import create_cookie
+from schemas.user import UserCreate, ForgotPasswordRequest, ResetPasswordRequest, UserResponse
+from services.auth import create_cookie, verify_user
 from services.email import send_reset_email
 from utils.pwdhash import verify_password, hash_password
 
@@ -30,7 +30,15 @@ async def login(response: Response, form_data: OAuth2PasswordRequestForm = Depen
 
     create_cookie(response, user['email'])
 
-    return {"message": "Login successful"}
+    return {"message": "Login successful", "user": UserResponse(
+        name=user["name"],
+        email=user["email"],
+        type=user["type"],
+        phone=user.get("phone"),
+        address=user.get("address"),
+        birthdate=user.get("birthdate"),
+        bio=user.get("bio")
+    )}
 
 
 @user_router.post('/signup', response_model=dict, tags=["auth"])
@@ -103,3 +111,23 @@ async def update_password(request: ResetPasswordRequest):
     )
 
     return {"message": "Password successfully reset"}
+
+
+@user_router.get("/validate-cookie")
+async def validate_cookie(request: Request):
+    try:
+        payload = verify_user(request)
+        user = db.user.find_one({"email": payload["sub"]})
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        return UserResponse(
+            name=user["name"],
+            email=user["email"],
+            type=user["type"],
+            phone=user.get("phone"),
+            address=user.get("address"),
+            birthdate=user.get("birthdate"),
+            bio=user.get("bio")
+        )
+    except HTTPException as e:
+        raise HTTPException(status_code=e.status_code, detail="You must login again")
