@@ -86,20 +86,7 @@ async def forgot_password(email: str):
     return {"message": "Reset code sent to your email"}
 
 
-@user_router.post("/verify-code")
-async def verify_reset_code(email: str, reset_code: str):
-    user = db.user.find_one({"email": email})
-
-    if not user or user.get("reset_code") != reset_code:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid reset code")
-
-    if datetime.utcnow() > user["reset_code_expiration"]:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Reset code expired")
-
-    return {"message": "Code verified, you can now reset your password"}
-
-
-@user_router.post("/update-password")
+@user_router.post("/reset-password")
 async def update_password(email: str, reset_code: str, new_password: str):
     user = db.user.find_one({"email": email})
 
