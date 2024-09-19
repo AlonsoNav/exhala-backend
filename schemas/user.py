@@ -6,3 +6,13 @@ class UserCreate(BaseModel):
     email: EmailStr
     password: str
     type: bool  # False for psychiatrist, True for patient
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    email: EmailStr
+    code: str
+    password: str

@@ -5,7 +5,7 @@ from pymongo import errors
 from fastapi import APIRouter, status, HTTPException, Depends, Response
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from config.db import db
-from schemas.user import UserCreate
+from schemas.user import UserCreate, ForgotPasswordRequest, ResetPasswordRequest
 from services.auth import create_cookie
 from services.email import send_reset_email
 from utils.pwdhash import verify_password, hash_password
@@ -69,36 +69,36 @@ async def logout(response: Response) -> dict:
 
 
 @user_router.post("/forgot-password")
-async def forgot_password(email: str):
-    user = db.user.find_one({"email": email})
+async def forgot_password(request: ForgotPasswordRequest):
+    user = db.user.find_one({"email": request.email})
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
     reset_code = ''.join(random.choices(string.ascii_letters + string.digits, k=6))  # Random 6-character code
 
     db.user.update_one(
-        {"email": email},
+        {"email": request.email},
         {"$set": {"reset_code": reset_code, "reset_code_expiration": datetime.utcnow() + timedelta(minutes=15)}}
     )
 
-    await send_reset_email(email, reset_code)
+    await send_reset_email(request.email, reset_code)
 
     return {"message": "Reset code sent to your email"}
 
 
 @user_router.post("/reset-password")
-async def update_password(email: str, reset_code: str, new_password: str):
-    user = db.user.find_one({"email": email})
+async def update_password(request: ResetPasswordRequest):
+    user = db.user.find_one({"email": request.email})
 
-    if not user or user.get("reset_code") != reset_code:
+    if not user or user.get("reset_code") != request.code:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid reset code")
 
     if datetime.utcnow() > user["reset_code_expiration"]:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Reset code expired")
 
-    hashed_password = hash_password(new_password)
+    hashed_password = hash_password(request.password)
     db.user.update_one(
-        {"email": email},
+        {"email": request.email},
         {"$set": {"password": hashed_password, "reset_code": None, "reset_code_expiration": None}}
     )
 
