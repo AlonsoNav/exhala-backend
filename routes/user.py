@@ -1,59 +1,64 @@
-import bcrypt
-from fastapi import APIRouter, Response, status, HTTPException, Depends
+from pymongo import errors
+from fastapi import APIRouter, status, HTTPException, Depends, Response
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from config.db import db
-from schemas.user import user_entity, user_list_entity
-from models.user import User
-from bson import ObjectId
-from services.auth import create_access_token
+from schemas.user import UserCreate
+from services.auth import create_cookie
+from utils.pwdhash import verify_password, hash_password
 
 user_router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
 
-def verify_password(plain_password, hashed_password):
-    return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password)
-
-
-def hash_password(password):
-    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
-
-
-@user_router.post("/login")
-async def login(form_data: OAuth2PasswordRequestForm = Depends()):
-    user = db.user.find_one({"email": form_data.username})
+@user_router.post("/login", response_model=dict, tags=["auth"])
+async def login(response: Response, form_data: OAuth2PasswordRequestForm = Depends()) -> dict:
+    """
+    Authenticate user and set access token cookie.
+    """
+    try:
+        user = db.user.find_one({"email": form_data.username})
+    except errors.PyMongoError as e:
+        print(e)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Database error")
 
     if not user or not verify_password(form_data.password, user['password']):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect email or password")
 
-    token = create_access_token(data={"sub": user["email"]})
-    return {"access_token": token, "token_type": "bearer"}
+    create_cookie(response, user['email'])
+
+    return {"message": "Login successful"}
 
 
-@user_router.get('/users', response_model=list[User], tags=['users'])
-async def find_all_users():
-    return user_list_entity(db.user.find())
+@user_router.post('/signup', response_model=dict, tags=["auth"])
+async def signup(response: Response, item: UserCreate) -> dict:
+    """
+    Register a new user and set access token cookie.
+    """
+    try:
+        if db.user.find_one({"email": item.email}):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered")
+    except errors.PyMongoError as e:
+        print(e)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Database error")
 
-
-@user_router.post('/users', response_model=User, tags=['users'])
-async def create_user(item: User):
     new_user = dict(item)
     new_user['password'] = hash_password(new_user['password'])
-    user_id = db.user.insert_one(dict(new_user)).inserted_id
-    return str(user_id)
+
+    try:
+        db.user.insert_one(new_user)
+    except errors.PyMongoError as e:
+        print(e)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Database error")
+
+    create_cookie(response, new_user['email'])
+
+    return {"message": "User created successfully"}
 
 
-@user_router.get('/users/{user_id}', response_model=User, tags=['users'])
-async def find_user(user_id: str):
-    return user_entity(db.user.find_one({"_id": ObjectId(user_id)}))
-
-
-@user_router.put('/users/{user_id}', response_model=User, tags=['users'])
-async def update_user(user_id: str, item: User):
-    db.user.update_one({"_id": ObjectId(user_id)}, {'$set': dict(item)})
-
-
-@user_router.delete('/users/{user_id}', status_code=status.HTTP_204_NO_CONTENT, tags=['users'])
-async def delete_user(user_id: str):
-    db.user.delete_one({"_id": ObjectId(user_id)})
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
+@user_router.post("/logout", response_model=dict, tags=["auth"])
+async def logout(response: Response) -> dict:
+    """
+    Logout user by deleting access token cookie.
+    """
+    response.delete_cookie(key="access_token")
+    return {"message": "Logout successful"}

@@ -1,12 +1,8 @@
-def user_entity(user) -> dict:
-    return {
-        "id": str(user["_id"]),
-        "name": user["name"],
-        "email": user["email"],
-        "phone": user["phone"],
-        "password": user["password"],
-    }
+from pydantic import BaseModel, EmailStr
 
 
-def user_list_entity(users) -> list:
-    return [user_entity(user) for user in users]
+class UserCreate(BaseModel):
+    name: str
+    email: EmailStr
+    password: str
+    type: bool  # True for psychiatrist, False for patient
