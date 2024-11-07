@@ -33,7 +33,9 @@ def create_user_response(user: dict) -> UserResponse:
         phone=user.get("phone"),
         address=user.get("address"),
         birthdate=user.get("birthdate"),
-        bio=user.get("bio")
+        bio=user.get("bio"),
+        psychologistType=user.get("psychologistType"),
+        gender=user.get("gender")
     )
 
 @user_router.post("/login", response_model=dict, tags=["auth"])
@@ -41,6 +43,7 @@ async def login(response: Response, form_data: OAuth2PasswordRequestForm = Depen
     """
     Authenticate user and set access token cookie.
     """
+    logger.info(f"Login attempt for {form_data.username}")
     user = find_user_by_email(form_data.username)
     if not user or not verify_password(form_data.password, user['password']):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect email or password")
@@ -109,7 +112,11 @@ async def update_password(request: ResetPasswordRequest):
     if not user or user.get("reset_code") != request.code:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid reset code")
 
-    if now_utc> user["reset_code_expiration"]:
+    reset_code_expiration = user["reset_code_expiration"]
+    if reset_code_expiration.tzinfo is None:
+        reset_code_expiration = reset_code_expiration.replace(tzinfo=timezone.utc)
+
+    if now_utc > reset_code_expiration:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Reset code expired")
 
     hashed_password = hash_password(request.password)

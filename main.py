@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routes.user import user_router as user
+from routes.psychologist import psychologist_router as psychologist
 
 app = FastAPI()
 
@@ -14,3 +15,4 @@ app.add_middleware(
 
 # Routes
 app.include_router(user)
+app.include_router(psychologist)
