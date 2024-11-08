@@ -1,6 +1,6 @@
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, validator
 from typing import Optional
-from datetime import date
+from datetime import datetime
 
 class UserCreate(BaseModel):
     """
@@ -20,7 +20,7 @@ class UserResponse(BaseModel):
     type: bool = Field(..., description="False for psychiatrist, True for patient")
     phone: Optional[str] = Field(None, description="The phone number of the user")
     address: Optional[str] = Field(None, description="The address of the user")
-    birthdate: Optional[date] = Field(None, description="The birthdate of the user")
+    birthdate: Optional[datetime] = Field(None, description="The birthdate of the user")
     bio: Optional[str] = Field(None, description="The bio of the user")
     psychologistType: Optional[str] = Field(None, description="The type of psychologist")
     gender: Optional[str] = Field(None, description="The gender of the user")
@@ -34,7 +34,7 @@ class UpdateUserRequest(BaseModel):
     email: Optional[EmailStr] = Field(None, description="The email of the user")
     phone: Optional[str] = Field(None, description="The phone number of the user")
     address: Optional[str] = Field(None, description="The address of the user")
-    birthdate: Optional[date] = Field(None, description="The birthdate of the user")
+    birthdate: Optional[datetime] = Field(None, description="The birthdate of the user")
     bio: Optional[str] = Field(None, description="The bio of the user")
     psychologistType: Optional[str] = Field(None, description="The type of psychologist")
     gender: Optional[str] = Field(None, description="The gender of the user")

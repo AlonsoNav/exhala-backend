@@ -163,7 +163,7 @@ async def change_password(request: Request, change_password_request: ChangePassw
 @user_router.put("/update-user", response_model=UserResponse, tags=["auth"])
 async def update_user(request: Request, update_user_request: UpdateUserRequest, current_user: dict = Depends(verify_user)):
     """
-    Update user data except photo and password.
+    Update user data except photo, password and type.
     """
     user = find_user_by_email(current_user["sub"])
     if not user:
