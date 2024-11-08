@@ -76,7 +76,7 @@ async def logout(response: Response) -> dict:
     """
     Logout user by deleting access token cookie.
     """
-    response.delete_cookie(key="access_token")
+    response.delete_cookie(key="access_token", secure=True, httponly=True, samesite="none")
     return {"message": "Logout successful"}
 
 @user_router.post("/forgot-password", response_model=dict, tags=["auth"])
