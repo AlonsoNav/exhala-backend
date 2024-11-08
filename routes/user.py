@@ -4,8 +4,11 @@ from datetime import datetime, timedelta, timezone
 from pymongo import errors
 from fastapi import APIRouter, status, HTTPException, Depends, Response, Request
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from pymongo.errors import DuplicateKeyError
+
 from config.db import db
-from schemas.user import UserCreate, ForgotPasswordRequest, ResetPasswordRequest, UserResponse, ChangePasswordRequest
+from schemas.user import UserCreate, ForgotPasswordRequest, ResetPasswordRequest, UserResponse, ChangePasswordRequest, \
+    UpdateUserRequest
 from services.auth import create_cookie, verify_user
 from services.email import send_reset_email
 from utils.pwdhash import verify_password, hash_password
@@ -64,6 +67,8 @@ async def signup(response: Response, item: UserCreate) -> dict:
 
     try:
         db.user.insert_one(new_user)
+    except DuplicateKeyError:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already in use")
     except errors.PyMongoError as e:
         logger.error(f"Database error: {e}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Database error")
@@ -147,10 +152,28 @@ async def change_password(request: Request, change_password_request: ChangePassw
     """
     Change user's password.
     """
-    user = db.user.find_one({"email": current_user["sub"]})
+    user = find_user_by_email(current_user["sub"])
     if not user or not verify_password(change_password_request.oldPassword, user['password']):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect old password")
 
     new_hashed_password = hash_password(change_password_request.newPassword)
     db.user.update_one({"email": user["email"]}, {"$set": {"password": new_hashed_password}})
     return {"message": "Password successfully changed"}
+
+@user_router.put("/update-user", response_model=UserResponse, tags=["auth"])
+async def update_user(request: Request, update_user_request: UpdateUserRequest, current_user: dict = Depends(verify_user)):
+    """
+    Update user data except photo and password.
+    """
+    user = find_user_by_email(current_user["sub"])
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    update_data = {k: v for k, v in dict(update_user_request).items() if v is not None}
+    try:
+        db.user.update_one({"email": user["email"]}, {"$set": update_data})
+    except DuplicateKeyError:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already in use")
+
+    updated_user = find_user_by_email(user["email"])
+    return UserResponse(**updated_user)

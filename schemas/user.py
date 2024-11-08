@@ -26,6 +26,19 @@ class UserResponse(BaseModel):
     gender: Optional[str] = Field(None, description="The gender of the user")
     photo: Optional[str] = Field(None, description="The photo of the user")
 
+class UpdateUserRequest(BaseModel):
+    """
+    Schema for updating user data.
+    """
+    name: Optional[str] = Field(None, description="The name of the user")
+    email: Optional[EmailStr] = Field(None, description="The email of the user")
+    phone: Optional[str] = Field(None, description="The phone number of the user")
+    address: Optional[str] = Field(None, description="The address of the user")
+    birthdate: Optional[date] = Field(None, description="The birthdate of the user")
+    bio: Optional[str] = Field(None, description="The bio of the user")
+    psychologistType: Optional[str] = Field(None, description="The type of psychologist")
+    gender: Optional[str] = Field(None, description="The gender of the user")
+
 class ForgotPasswordRequest(BaseModel):
     """
     Schema for forgot password request.
