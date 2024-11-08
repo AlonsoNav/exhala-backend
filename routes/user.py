@@ -1,11 +1,11 @@
+import base64
 import random
 import string
 from datetime import datetime, timedelta, timezone
 from pymongo import errors
-from fastapi import APIRouter, status, HTTPException, Depends, Response, Request
+from fastapi import APIRouter, status, HTTPException, Depends, Response, Request, UploadFile, File
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from pymongo.errors import DuplicateKeyError
-
+from pymongo.errors import DuplicateKeyError, PyMongoError
 from config.db import db
 from schemas.user import UserCreate, ForgotPasswordRequest, ResetPasswordRequest, UserResponse, ChangePasswordRequest, \
     UpdateUserRequest
@@ -13,8 +13,11 @@ from services.auth import create_cookie, verify_user
 from services.email import send_reset_email
 from utils.pwdhash import verify_password, hash_password
 import logging
+from gridfs import GridFS
+from bson import ObjectId
 
 user_router = APIRouter()
+fs = GridFS(db)
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
 # Configure logging
@@ -29,6 +32,14 @@ def find_user_by_email(email: str):
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Database error")
 
 def create_user_response(user: dict) -> UserResponse:
+    profile_image = None
+    if user.get("profile_image_id"):
+        try:
+            grid_out = fs.get(ObjectId(user["profile_image_id"]))
+            profile_image = base64.b64encode(grid_out.read()).decode("utf-8")
+        except Exception as e:
+            logger.error(f"Error reading profile image: {e}")
+
     return UserResponse(
         name=user["name"],
         email=user["email"],
@@ -38,7 +49,8 @@ def create_user_response(user: dict) -> UserResponse:
         birthdate=user.get("birthdate"),
         bio=user.get("bio"),
         psychologistType=user.get("psychologistType"),
-        gender=user.get("gender")
+        gender=user.get("gender"),
+        profile_image=profile_image
     )
 
 @user_router.post("/login", response_model=dict, tags=["auth"])
@@ -176,4 +188,34 @@ async def update_user(request: Request, update_user_request: UpdateUserRequest, 
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already in use")
 
     updated_user = find_user_by_email(user["email"])
-    return UserResponse(**updated_user)
+    return create_user_response(updated_user)
+
+@user_router.post("/upload-image", response_model=dict, tags=["auth"])
+async def upload_image(request: Request, file: UploadFile = File(...), current_user: dict = Depends(verify_user)):
+    """
+    Upload an image and store its reference in the user's profile.
+    """
+    if file.content_type not in ["image/jpeg", "image/png"]:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported file type")
+
+    user_data = db.user.find_one({"email": current_user["sub"]})
+    current_image_id = user_data.get("profile_image_id") if user_data else None
+
+    # Delete current image
+    if current_image_id:
+        try:
+            fs.delete(current_image_id)
+        except PyMongoError as e:
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                                    detail="Error deleting old image from GridFS")
+
+    grid_in = fs.new_file(filename=file.filename, content_type=file.content_type)
+    grid_in.write(file.file.read())
+    grid_in.close()
+
+    db.user.update_one(
+        {"email": current_user["sub"]},
+        {"$set": {"profile_image_id": grid_in._id}}
+    )
+
+    return {"message": "Image uploaded successfully"}

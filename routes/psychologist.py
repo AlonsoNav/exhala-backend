@@ -1,9 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from config.db import db
 from schemas.user import UserResponse
-from routes.user import validate_cookie
+from routes.user import validate_cookie, create_user_response
 import logging
-import asyncio
 
 psychologist_router = APIRouter()
 
@@ -17,4 +16,4 @@ async def get_psychologists(request: Request, current_user: dict = Depends(valid
     Get all users who are psychologists (type = False).
     """
     psychologists = list(db.user.find({"type": False}))
-    return [UserResponse(**psychologist) for psychologist in psychologists]
+    return [create_user_response(psychologist) for psychologist in psychologists]

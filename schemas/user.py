@@ -24,7 +24,7 @@ class UserResponse(BaseModel):
     bio: Optional[str] = Field(None, description="The bio of the user")
     psychologistType: Optional[str] = Field(None, description="The type of psychologist")
     gender: Optional[str] = Field(None, description="The gender of the user")
-    photo: Optional[str] = Field(None, description="The photo of the user")
+    profile_image: Optional[str] = Field(None, description="The base64 encoded profile image of the user")
 
 class UpdateUserRequest(BaseModel):
     """
