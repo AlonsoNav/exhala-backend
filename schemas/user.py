@@ -39,3 +39,10 @@ class ResetPasswordRequest(BaseModel):
     email: EmailStr = Field(..., description="The email of the user")
     code: str = Field(..., description="The reset code sent to the user")
     password: str = Field(..., description="The new password of the user")
+
+class ChangePasswordRequest(BaseModel):
+    """
+    Schema for change password request.
+    """
+    oldPassword: str = Field(..., description="The old password of the user")
+    newPassword: str = Field(..., description="The new password of the user")

@@ -5,7 +5,7 @@ from pymongo import errors
 from fastapi import APIRouter, status, HTTPException, Depends, Response, Request
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from config.db import db
-from schemas.user import UserCreate, ForgotPasswordRequest, ResetPasswordRequest, UserResponse
+from schemas.user import UserCreate, ForgotPasswordRequest, ResetPasswordRequest, UserResponse, ChangePasswordRequest
 from services.auth import create_cookie, verify_user
 from services.email import send_reset_email
 from utils.pwdhash import verify_password, hash_password
@@ -141,3 +141,16 @@ async def validate_cookie(request: Request):
         return create_user_response(user)
     except HTTPException as e:
         raise HTTPException(status_code=e.status_code, detail="You must login again")
+
+@user_router.post("/change-password", response_model=dict, tags=["auth"])
+async def change_password(request: Request, change_password_request: ChangePasswordRequest, current_user: dict = Depends(verify_user)):
+    """
+    Change user's password.
+    """
+    user = db.user.find_one({"email": current_user["sub"]})
+    if not user or not verify_password(change_password_request.oldPassword, user['password']):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect old password")
+
+    new_hashed_password = hash_password(change_password_request.newPassword)
+    db.user.update_one({"email": user["email"]}, {"$set": {"password": new_hashed_password}})
+    return {"message": "Password successfully changed"}
