@@ -142,7 +142,7 @@ async def validate_cookie(request: Request):
     except HTTPException as e:
         raise HTTPException(status_code=e.status_code, detail="You must login again")
 
-@user_router.post("/change-password", response_model=dict, tags=["auth"])
+@user_router.put("/change-password", response_model=dict, tags=["auth"])
 async def change_password(request: Request, change_password_request: ChangePasswordRequest, current_user: dict = Depends(verify_user)):
     """
     Change user's password.
