@@ -15,6 +15,7 @@ class UserResponse(BaseModel):
     """
     Schema for user response.
     """
+    id: str = Field(..., description="The id of the user")
     name: str = Field(..., description="The name of the user")
     email: EmailStr = Field(..., description="The email of the user")
     type: bool = Field(..., description="False for psychiatrist, True for patient")

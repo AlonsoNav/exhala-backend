@@ -41,6 +41,7 @@ def create_user_response(user: dict) -> UserResponse:
             logger.error(f"Error reading profile image: {e}")
 
     return UserResponse(
+        id=str(user["_id"]),
         name=user["name"],
         email=user["email"],
         type=user["type"],
