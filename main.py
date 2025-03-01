@@ -7,7 +7,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],  # Update when deploying
+    allow_origins=["http://localhost:5173", "https://exhala.vercel.app"],  # Update when deploying
     allow_credentials=True,  # Allow tokens and cookies
     allow_methods=["*"],  # Restrict methods when deploying
     allow_headers=["*"],
